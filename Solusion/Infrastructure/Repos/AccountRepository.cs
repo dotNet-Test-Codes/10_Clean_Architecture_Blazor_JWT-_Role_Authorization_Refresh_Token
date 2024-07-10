@@ -4,8 +4,10 @@ using Application.DTOs.Response;
 using Application.DTOs.Response.Account;
 using Application.Extensions;
 using Domain.Entity.Authentication;
+using Infrastructure.Data;
 using Mapster;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -18,16 +20,42 @@ namespace Infrastructure.Repos
     public class AccountRepository(RoleManager<IdentityRole> roleManager,
                                    UserManager<ApplicationUser> userManager,
                                    SignInManager<ApplicationUser> signInManager,
-                                   IConfiguration config) : IAccount
+                                   IConfiguration config,
+                                   AppDbContext context) : IAccount
     {
         public Task<GeneralResponse> ChangeUserRoleAsync(ChangeUserRoleRequestDTO model)
         {
             throw new NotImplementedException();
         }
 
-        public Task<GeneralResponse> CreateAccountAsync(CreateAccountDTO model)
+        public async Task<GeneralResponse> CreateAccountAsync(CreateAccountDTO model)
         {
-            throw new NotImplementedException();
+            try
+            {
+                if (await FindUserByEmailAsync(model.EmailAddress) != null)
+                    return new GeneralResponse(false, "Sorry, user is already created");
+
+                var user = new ApplicationUser()
+                {
+                    Name = model.Name,
+                    UserName = model.EmailAddress,
+                    Email = model.EmailAddress,
+                    PasswordHash = model.Password
+                };
+
+                var result = await userManager.CreateAsync(user, model.Password);
+                string error = CheckResponse(result);
+
+                if (!string.IsNullOrEmpty(error))
+                    return new GeneralResponse(false, error);
+
+                var (flag, message) = await AssignUserToRole(user, new IdentityRole() { Name = model.Role });
+                return new GeneralResponse(flag, message);
+            }
+            catch (Exception ex)
+            {
+                return new GeneralResponse(false, ex.Message);
+            }
         }
 
         public async Task CreateAdmin()
@@ -64,7 +92,43 @@ namespace Infrastructure.Repos
             throw new NotImplementedException();
         }
 
-        public Task<LoginResponse> LoginAccountAsync(LoginDTO model)
+        public async Task<LoginResponse> LoginAccountAsync(LoginDTO model)
+        {
+            try
+            {
+                var user = await FindUserByEmailAsync(model.EmailAddress);
+                if (user is null)
+                    return new LoginResponse(false, "User not found");
+
+                SignInResult result;
+
+                try
+                {
+                    result = await signInManager.CheckPasswordSignInAsync(user, model.Password, false);
+                }
+                catch
+                {
+                    return new LoginResponse(false, "Invalid credentials");
+                }
+
+                if (!result.Succeeded)
+                    return new LoginResponse(false, "Invalid credentials");
+
+                string jwtToken = await GenerateToken(user);
+                string refreshToken = GenerateRefreshToken();
+
+                if (string.IsNullOrEmpty(jwtToken) || string.IsNullOrEmpty(refreshToken))
+                    return new LoginResponse(false, "Error occurred while logging in account, please contact administration");
+                else
+                    return new LoginResponse(true, $"{user.Name} successfully logged in", jwtToken, refreshToken);
+            }
+            catch (Exception ex)
+            {
+                return new LoginResponse(false, ex.Message);
+            }
+        }
+
+        public Task<LoginResponse> RefreshTokenAsync(RefreshTokenDTO model)
         {
             throw new NotImplementedException();
         }
@@ -119,7 +183,7 @@ namespace Infrastructure.Repos
                 return new GeneralResponse(true, $"{user.Name} assigned to {role.Name} role");
         }
 
-        public static string CheckResponse(IdentityResult result)
+        private static string CheckResponse(IdentityResult result)
         {
             if (!result.Succeeded)
             {
@@ -128,6 +192,27 @@ namespace Infrastructure.Repos
             }
 
             return null!;
+        }
+
+        private async Task<GeneralResponse> SaveRefreshToken(string userId, string token)
+        {
+            try
+            {
+                var user = await context.RefreshTokens.FirstOrDefaultAsync(t => t.UserID == userId);
+
+                if (user == null)
+                    context.RefreshTokens.Add(new RefreshToken() { UserID = userId, Token = token });
+                else
+                    user.Token = token;
+
+                await context.SaveChangesAsync();
+
+                return new GeneralResponse(true, null!);
+            }
+            catch (Exception ex)
+            {
+                return new GeneralResponse(false, ex.Message);
+            }
         }
         #endregion
     }

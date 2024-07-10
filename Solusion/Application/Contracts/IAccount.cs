@@ -7,10 +7,11 @@ namespace Application.Contracts
     public interface IAccount
     {
         Task CreateAdmin();
-        Task<GeneralResponse> CreateAccountAsync(CreateAccountDTO model);
+        Task<IEnumerable<GetRoleDTO>> GetRoleAsync();
         Task<LoginResponse> LoginAccountAsync(LoginDTO model);
         Task<GeneralResponse> CreateRoleAsync(CreateRoleDTO model);
-        Task<IEnumerable<GetRoleDTO>> GetRoleAsync();
+        Task<LoginResponse> RefreshTokenAsync(RefreshTokenDTO model);
+        Task<GeneralResponse> CreateAccountAsync(CreateAccountDTO model);
         Task<IEnumerable<GetUsersWithRolesResponseDTO>> GetUsersWithRolesAsync();
         Task<GeneralResponse> ChangeUserRoleAsync(ChangeUserRoleRequestDTO model);
     }
