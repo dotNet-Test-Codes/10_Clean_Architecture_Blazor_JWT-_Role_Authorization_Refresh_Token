@@ -87,9 +87,28 @@ namespace Infrastructure.Repos
             throw new NotImplementedException();
         }
 
-        public Task<IEnumerable<GetUsersWithRolesResponseDTO>> GetUsersWithRolesAsync()
+        public async Task<IEnumerable<GetUsersWithRolesResponseDTO>> GetUsersWithRolesAsync()
         {
-            throw new NotImplementedException();
+            var allUsers = await userManager.Users.ToListAsync();
+            if (allUsers is null) return null!;
+
+            var list = new List<GetUsersWithRolesResponseDTO>();
+
+            foreach (var user in allUsers)
+            {
+                var getUserRole = (await userManager.GetRolesAsync(user)).FirstOrDefault();
+                var getRoleInfo = await roleManager.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == getUserRole.ToLower());
+
+                list.Add(new GetUsersWithRolesResponseDTO()
+                {
+                    Name = user.Name,
+                    Email = user.Email,
+                    RoleId = getRoleInfo.Id,
+                    RoleName = getRoleInfo.Name
+                });
+            }
+
+            return list;
         }
 
         public async Task<LoginResponse> LoginAccountAsync(LoginDTO model)
@@ -120,7 +139,13 @@ namespace Infrastructure.Repos
                 if (string.IsNullOrEmpty(jwtToken) || string.IsNullOrEmpty(refreshToken))
                     return new LoginResponse(false, "Error occurred while logging in account, please contact administration");
                 else
-                    return new LoginResponse(true, $"{user.Name} successfully logged in", jwtToken, refreshToken);
+                {
+                    var saveResult = await SaveRefreshToken(user.Id, refreshToken);
+                    if (saveResult.Flag)
+                        return new LoginResponse(true, $"{user.Name} successfully logged in", jwtToken, refreshToken);
+                    else
+                        return new LoginResponse();
+                }
             }
             catch (Exception ex)
             {
@@ -128,9 +153,20 @@ namespace Infrastructure.Repos
             }
         }
 
-        public Task<LoginResponse> RefreshTokenAsync(RefreshTokenDTO model)
+        public async Task<LoginResponse> RefreshTokenAsync(RefreshTokenDTO model)
         {
-            throw new NotImplementedException();
+            var token = await context.RefreshTokens.FirstOrDefaultAsync(t => t.Token == model.Token);
+            if (token == null) return new LoginResponse();
+
+            var user = await userManager.FindByIdAsync(token.UserID);
+            string newToken = await GenerateToken(user);
+            string newRefreshToken = GenerateRefreshToken();
+
+            var saveResult = await SaveRefreshToken(user.Id, newRefreshToken);
+            if (saveResult.Flag)
+                return new LoginResponse(true, $"{user.Name} successfully re-logged in", newToken, newRefreshToken);
+            else
+                return new LoginResponse();
         }
 
         #region Private
