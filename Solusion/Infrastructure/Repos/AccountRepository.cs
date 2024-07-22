@@ -23,9 +23,24 @@ namespace Infrastructure.Repos
                                    IConfiguration config,
                                    AppDbContext context) : IAccount
     {
-        public Task<GeneralResponse> ChangeUserRoleAsync(ChangeUserRoleRequestDTO model)
+        public async Task<GeneralResponse> ChangeUserRoleAsync(ChangeUserRoleRequestDTO model)
         {
-            throw new NotImplementedException();
+            if (await FindRoleByNameAsync(model.RoleName) is null) return new GeneralResponse(false, "Role not found");
+            if (await FindRoleByNameAsync(model.UserEmail) is null) return new GeneralResponse(false, "User not found");
+
+            var user = await FindUserByEmailAsync(model.UserEmail);
+            var previousRole = (await userManager.GetRolesAsync(user)).FirstOrDefault();
+            var removeOldRole = await userManager.RemoveFromRoleAsync(user, previousRole!);
+            var error = CheckResponse(removeOldRole);
+            if (!string.IsNullOrEmpty(error))
+                return new GeneralResponse(false, error);
+
+            var result = await userManager.AddToRoleAsync(user, model.RoleName);
+            var response = CheckResponse(result);
+            if (!string.IsNullOrEmpty(response))
+                return new GeneralResponse(false, response);
+            else
+                return new GeneralResponse(true, "Role Changed");
         }
 
         public async Task<GeneralResponse> CreateAccountAsync(CreateAccountDTO model)
@@ -74,7 +89,7 @@ namespace Infrastructure.Repos
 
                 await CreateAccountAsync(admin);
             }
-            catch { }
+            catch { throw null!; }
         }
 
         public Task<GeneralResponse> CreateRoleAsync(CreateRoleDTO model)
@@ -82,10 +97,8 @@ namespace Infrastructure.Repos
             throw new NotImplementedException();
         }
 
-        public Task<IEnumerable<GetRoleDTO>> GetRoleAsync()
-        {
-            throw new NotImplementedException();
-        }
+        public async Task<IEnumerable<GetRoleDTO>> GetRoleAsync() =>
+            (await roleManager.Roles.ToListAsync()).Adapt<IEnumerable<GetRoleDTO>>();
 
         public async Task<IEnumerable<GetUsersWithRolesResponseDTO>> GetUsersWithRolesAsync()
         {
@@ -97,13 +110,13 @@ namespace Infrastructure.Repos
             foreach (var user in allUsers)
             {
                 var getUserRole = (await userManager.GetRolesAsync(user)).FirstOrDefault();
-                var getRoleInfo = await roleManager.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == getUserRole.ToLower());
+                var getRoleInfo = await roleManager.Roles.FirstOrDefaultAsync(r => r.Name!.ToLower() == getUserRole!.ToLower());
 
                 list.Add(new GetUsersWithRolesResponseDTO()
                 {
                     Name = user.Name,
                     Email = user.Email,
-                    RoleId = getRoleInfo.Id,
+                    RoleId = getRoleInfo!.Id,
                     RoleName = getRoleInfo.Name
                 });
             }
@@ -174,7 +187,7 @@ namespace Infrastructure.Repos
             await userManager.FindByEmailAsync(email);
 
         private async Task<IdentityRole> FindRoleByNameAsync(string roleName) =>
-            await roleManager.FindByNameAsync(roleName);
+            await roleManager.FindByNameAsync(roleName)!;
 
         private static string GenerateRefreshToken() =>
             Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
@@ -187,10 +200,10 @@ namespace Infrastructure.Repos
                 var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
                 var userClaims = new[]
                 {
-                    new Claim(ClaimTypes.Name, user.Email),
-                    new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Role, (await userManager.GetRolesAsync(user)).FirstOrDefault().ToString()),
-                    new Claim("FullName", user.Name)
+                    new Claim(ClaimTypes.Name, user.Email!),
+                    new Claim(ClaimTypes.Email, user.Email!),
+                    new Claim(ClaimTypes.Role, (await userManager.GetRolesAsync(user)).FirstOrDefault()!.ToString()),
+                    new Claim("FullName", user.Name!)
                 };
 
                 var token = new JwtSecurityToken(issuer: config["Jwt:Issuer"],
