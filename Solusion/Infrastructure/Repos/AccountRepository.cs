@@ -92,9 +92,23 @@ namespace Infrastructure.Repos
             catch { throw null!; }
         }
 
-        public Task<GeneralResponse> CreateRoleAsync(CreateRoleDTO model)
+        public async Task<GeneralResponse> CreateRoleAsync(CreateRoleDTO model)
         {
-            throw new NotImplementedException();
+            try
+            {
+                if((await FindRoleByNameAsync(model.Name!)) == null)
+                {
+                    var response = await roleManager.CreateAsync(new IdentityRole(model.Name!));
+                    var error = CheckResponse(response);
+                    if (!string.IsNullOrEmpty(error))
+                        throw new Exception(error)!;
+                    else
+                        return new GeneralResponse(true, $"{model.Name} created");
+                }
+                return new GeneralResponse(false, $"{model.Name} already created");
+
+            }
+            catch(Exception ex) { throw new Exception(ex.Message)!; }
         }
 
         public async Task<IEnumerable<GetRoleDTO>> GetRoleAsync() =>
@@ -220,10 +234,10 @@ namespace Infrastructure.Repos
         private async Task<GeneralResponse> AssignUserToRole(ApplicationUser user, IdentityRole role)
         {
             if (user is null || role is null) return new GeneralResponse(false, "Model state cannot be empty!");
-            if (await FindRoleByNameAsync(role.Name) == null)
+            if (await FindRoleByNameAsync(role.Name!) == null)
                 await CreateRoleAsync(role.Adapt(new CreateRoleDTO()));
 
-            IdentityResult result = await userManager.AddToRoleAsync(user, role.Name);
+            IdentityResult result = await userManager.AddToRoleAsync(user, role.Name!);
             string error = CheckResponse(result);
 
             if (!string.IsNullOrEmpty(error))
@@ -250,7 +264,7 @@ namespace Infrastructure.Repos
                 var user = await context.RefreshTokens.FirstOrDefaultAsync(t => t.UserID == userId);
 
                 if (user == null)
-                    context.RefreshTokens.Add(new RefreshToken() { UserID = userId, Token = token });
+                    await context.RefreshTokens.AddAsync(new RefreshToken() { UserID = userId, Token = token });
                 else
                     user.Token = token;
 
