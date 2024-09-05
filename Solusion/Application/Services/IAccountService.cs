@@ -4,7 +4,7 @@ using Application.DTOs.Response.Account;
 
 namespace Application.Services
 {
-    internal interface IAccountService
+    public interface IAccountService
     {
         Task CreateAdmin();
         Task<IEnumerable<GetRoleDTO>> GetRoleAsync();
