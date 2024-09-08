@@ -4,7 +4,7 @@
     {
         public const string BrowserStorageKey = "x-key";
         public const string AuthenticationType = "JwtAuth";
-        public const string HttpClientName = "WebUICClient";
+        public const string HttpClientName = "WebUIClient";
         public const string HttpClientHeaderScheme = "Bearer";
 
         public const string CreateAdminRoute = "setting";

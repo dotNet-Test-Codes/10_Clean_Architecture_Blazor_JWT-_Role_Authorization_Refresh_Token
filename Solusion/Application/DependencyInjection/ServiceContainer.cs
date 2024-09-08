@@ -20,7 +20,7 @@ namespace Application.DependencyInjection
             services.AddCascadingAuthenticationState();
             services.AddHttpClient("WebUIClient", client =>
             {
-                client.BaseAddress = new Uri("http://localhost:7297/");
+                client.BaseAddress = new Uri("https://localhost:7297/");
             }).AddHttpMessageHandler<CustomHttpHandler>();
 
             return services;
