@@ -10,7 +10,7 @@
         public const string CreateAdminRoute = "setting";
         public const string LoginRoute = "api/account/identity/login";
         public const string RegisterRoute = "api/account/identity/create";
-        public const string GetRolesRoute = "api/account/identity/roles/list";
+        public const string GetRolesRoute = "api/account/identity/role/list";
         public const string CreateRoleRoute = "api/account/identity/role/create";
         public const string RefreshTokenRoute = "api/account/identity/refresh-token";
         public const string ChangeUsersRoleRoute = "api/account/identity/change-role";

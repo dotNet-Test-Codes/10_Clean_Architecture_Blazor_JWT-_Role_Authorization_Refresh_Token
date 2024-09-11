@@ -47,7 +47,7 @@ namespace API.Controllers
         }
 
         [HttpGet("identity/role/list")]
-        public async Task<ActionResult<IEnumerable<GetRoleDTO>>> GetRoles(RefreshTokenDTO model) =>
+        public async Task<ActionResult<IEnumerable<GetRoleDTO>>> GetRoles() =>
             Ok(await account.GetRoleAsync());
 
         [HttpPost("/setting")]
