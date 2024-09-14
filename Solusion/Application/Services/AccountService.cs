@@ -123,7 +123,7 @@ namespace Application.Services
             }
         }
 
-        public async Task<GeneralResponse> RegisterAccountAsync(CreateAccountDTO model)
+        public async Task<GeneralResponse> CreateAccountAsync(CreateAccountDTO model)
         {
             try
             {
@@ -162,11 +162,6 @@ namespace Application.Services
         }
 
         public Task<GeneralResponse> ChangeUserRoleAsync(ChangeUserRoleRequestDTO model)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<GeneralResponse> CreateAccountAsync(CreateAccountDTO model)
         {
             throw new NotImplementedException();
         }
